@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Get To The Clapper!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #FFF4E3; /* Brand Cream */
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #165C68; /* Brand Forest Teal */
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(22, 92, 104, 0.2);
+            border: 4px solid #165C68;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #D1EDDE; /* Brand Mint */
+            /* Ensure the game scales correctly on desktop */
+            width: 320px;
+            height: 480px;
+        }
+        
+        /* Mobile Scaling for better view on larger screens */
+        @media (min-width: 600px) {
+            #game-container {
+                transform: scale(1.2);
+            }
+        }
+
+        canvas {
+            display: block;
+            image-rendering: pixelated; /* Essential for 8-bit look */
+        }
+
+        /* UI Overlays */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+        
+        /* New styling for the clapperboard image on the start screen */
+        .start-sprite {
+            width: 96px; /* Scaled up 3x (32px * 3) for visibility */
+            height: auto;
+            margin-bottom: 20px;
+            image-rendering: pixelated;
+        }
+
+        h1 {
+            font-weight: 800;
+            font-size: 32px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 0px #FCE6F5; /* Powder Pink shadow */
+            color: #165C68;
+        }
+        
+        h2 {
+            font-weight: 600;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            pointer-events: auto;
+            background-color: #FFAF00; /* Fable Yellow */
+            color: #165C68;
+            border: 4px solid #165C68;
+            padding: 10px 20px;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            font-size: 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0px #165C68;
+            transition: transform 0.1s;
+            margin: 10px;
+            border-radius: 4px;
+        }
+
+        .btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #165C68;
+        }
+
+        /* Character Select Grid */
+        .char-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            pointer-events: auto;
+        }
+
+        .char-card {
+            background: #FFF;
+            border: 3px solid #165C68;
+            padding: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-radius: 4px;
+        }
+
+        .char-card:hover {
+            transform: scale(1.05);
+            background-color: #FCE6F5; /* Powder Pink hover */
+        }
+        
+        .char-card.selected {
+            background-color: #FFAF00;
+            box-shadow: inset 0 0 0 4px #165C68;
+        }
+
+        .char-preview {
+            width: 64px;
+            height: 64px;
+            /* image-rendering: pixelated; kept for image elements */
+            margin-bottom: 5px;
+        }
+
+        .char-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        #score-display {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-weight: 800;
+            font-size: 20px;
+            z-index: 10;
+            color: #165C68;
+            text-shadow: 2px 2px 0px #FFF;
+        }
+        
+        #mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        .touch-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 175, 0, 0.5);
+            border: 2px solid #165C68;
+            border-radius: 50%;
+            pointer-events: auto;
+            display: none; /* Shown via JS on touch devices */
+        }
+        
+        .touch-btn:active {
+            background: rgba(255, 175, 0, 0.8);
+        }
+
+        /* Win Text Animation */
+        @keyframes popIn {
+            0% { transform: scale(0); }
+            80% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .win-text {
+            font-size: 40px;
+            color: #E15588; /* Fuchsia Pink */
+            text-shadow: 3px 3px 0 #FFF;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            margin-bottom: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="320" height="480"></canvas>
+    <div id="score-display" class="hidden">0m</div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="ui-layer">
+        <!-- Clapperboard image for start screen -->
+        <img src="pxArt.png" alt="Clapperboard Sprite" class="start-sprite">
+        
+        <h1>Get To The Clapper!</h1>
+        <h2>A Fable Studios Game</h2>
+
+        <div style="margin-bottom: 20px; font-size: 14px; max-width: 280px;">
+            Reach the clapperboard at the top!<br>Collect keyframes for points.<br>Moving keyframes worth double!
+        </div>
+        <button class="btn" onclick="game.toCharacterSelect()">Start Game</button>
+    </div>
+
+    <!-- Character Select -->
+    <div id="char-screen" class="ui-layer hidden">
+        <h2>Choose Character</h2>
+        <div class="char-grid">
+            <div class="char-card" onclick="game.selectChar('yas')">
+                <!-- Replaced canvas with image file -->
+                <img id="preview-yas" src="yas.jpg" alt="Yas character" class="char-preview">
+                <span class="char-name">Yas</span>
+            </div>
+            <div class="char-card" onclick="game.selectChar('rob')">
+                <!-- Replaced canvas with image file -->
+                <img id="preview-rob" src="rob.jpg" alt="Rob character" class="char-preview">
+                <span class="char-name">Rob</span>
+            </div>
+            <div class="char-card" onclick="game.selectChar('luke')">
+                <!-- Replaced canvas with image file -->
+                <img id="preview-luke" src="luke.jpg" alt="Luke character" class="char-preview">
+                <span class="char-name">Luke</span>
+            </div>
+            <div class="char-card" onclick="game.selectChar('lou')">
+                <!-- Replaced canvas with image file -->
+                <img id="preview-lou" src="lou.jpg" alt="Lou character" class="char-preview">
+                <span class="char-name">Lou</span>
+            </div>
+        </div>
+        <button class="btn" onclick="game.startGame()">Continue</button>
+    </div>
+
+    <!-- Game Over / Win -->
+    <div id="end-screen" class="ui-layer hidden">
+        <h1 id="end-title">Game Over</h1>
+        <p id="end-score">Score: 0</p>
+        <button class="btn" onclick="game.reset()">Play Again</button>
+    </div>
+    
+    <div id="mobile-controls">
+        <div class="touch-btn" id="btn-left"></div>
+        <div class="touch-btn" id="btn-right" style="margin-left:auto;"></div>
+    </div>
+    
+    <!-- Hidden element to load the clapperboard PNG sprite for canvas drawing -->
+    <img id="clapperPrizeImage" src="pxArt.png" alt="Clapperboard Prize" style="display: none;">
+</div>
+
+<script>
+/**
+ * Fable Studios Brand Colors
+ */
+const COLORS = {
+    ForestTeal: '#165C68',
+    PowderPink: '#FCE6F5',
+    TealHighlight: '#277175',
+    Mint: '#D1EDDE',
+    Sage: '#87B9A2',
+    FuchsiaPink: '#E15588',
+    FableYellow: '#FFAF00',
+    Cream: '#FFF4E3',
+    SkinOlive: '#C68642',
+    SkinPale: '#F5CBA7',
+    HairBlack: '#2C2C2C',
+    HairBrown: '#5D4037',
+    HairBlonde: '#F1C40F'
+};
+
+/**
+ * Pixel Art Data - Only uses arrays for player/collectibles now.
+ */
+const SPRITES = {
+    // Player Sprites (8x8)
+    yas: [
+        [0,3,3,3,3,3,0,0], [0,3,3,3,3,3,3,0], [0,3,2,2,2,3,0,0], [0,3,2,2,2,3,0,0],
+        [0,0,2,2,2,0,0,0], [0,4,4,4,4,4,0,0], [0,4,4,4,4,4,0,0], [0,4,4,4,4,4,0,0]
+    ],
+    rob: [
+        [0,3,3,3,3,0,0,0], [0,3,2,2,2,0,0,0], [0,3,2,2,2,0,0,0], [0,3,3,3,3,3,0,0],
+        [0,0,2,2,2,0,0,0], [0,4,4,4,4,4,0,0], [0,4,4,4,4,4,0,0], [0,4,4,4,4,4,0,0]
+    ],
+    luke: [
+        [0,3,3,3,3,0,0,0], [0,3,3,3,3,3,0,0], [0,3,2,2,2,0,0,0], [0,0,2,2,2,0,0,0],
+        [0,0,2,2,2,0,0,0], [0,4,4,4,4,4,0,0], [0,4,5,5,5,4,0,0], [0,4,4,4,4,4,0,0]
+    ],
+    lou: [
+        [0,3,3,3,3,3,0,0], [0,3,3,3,3,3,3,0], [0,3,2,5,2,5,3,0], [0,3,2,2,2,3,0,0],
+        [0,3,3,2,3,3,0,0], [0,4,4,4,4,4,0,0], [0,3,4,4,4,3,0,0], [0,3,4,4,4,3,0,0]
+    ],
+    // Collectible Sprites (8x8)
+    keyframe: [
+        [0,0,0,1,0,0,0,0], [0,0,1,5,1,0,0,0], [0,1,5,5,5,1,0,0], [1,5,5,5,5,5,1,0],
+        [0,1,5,5,5,1,0,0], [0,0,1,5,1,0,0,0], [0,0,0,1,0,0,0,0], [0,0,0,0,0,0,0,0]
+    ],
+    leaf: [
+        [0,0,0,1,0,0,0,0], [0,0,1,2,1,0,0,0], [0,1,2,2,2,1,0,0], [0,0,1,2,1,0,0,0],
+        [0,0,0,1,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0]
+    ]
+};
+
+// Character definitions mapped to colors
+const CHARACTERS = {
+    yas: {
+        palette: { 2: COLORS.SkinOlive, 3: COLORS.HairBlack, 4: COLORS.FuchsiaPink, 5: COLORS.Cream },
+        sprite: SPRITES.yas
+    },
+    rob: {
+        palette: { 2: COLORS.SkinPale, 3: COLORS.HairBrown, 4: COLORS.ForestTeal, 5: COLORS.TealHighlight },
+        sprite: SPRITES.rob
+    },
+    luke: {
+        // Hair (3) is HairBrown
+        palette: { 2: COLORS.SkinPale, 3: COLORS.HairBrown, 4: COLORS.TealHighlight, 5: COLORS.Cream },
+        sprite: SPRITES.luke
+    },
+    lou: {
+        palette: { 2: COLORS.SkinPale, 3: COLORS.HairBlonde, 4: COLORS.Sage, 5: COLORS.HairBlack }, // Glasses black
+        sprite: SPRITES.lou
+    }
+};
+
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Scale for 8-bit look. Canvas is 320x480, internal width 160x240 -> 2x zoom
+        this.scale = 2; 
+        this.width = this.canvas.width / this.scale;
+        this.height = this.canvas.height / this.scale;
+        this.ctx.imageSmoothingEnabled = false;
+
+        // --- Reference to the Clapperboard Prize Image ---
+        this.clapperPrizeImage = document.getElementById('clapperPrizeImage');
+        // Define the expected size of the PNG sprite in game units (pixels)
+        this.clapperPrizeW = 32; 
+        this.clapperPrizeH = 24; 
+
+        this.state = 'START'; // START, SELECT, PLAYING, GAMEOVER, WIN
+        this.selectedChar = null;
+        
+        this.keys = { left: false, right: false, jump: false };
+        this.gravity = 0.25;
+        this.friction = 0.8;
+        
+        this.player = {
+            x: 0, y: 0, vx: 0, vy: 0, 
+            width: 8, height: 8, 
+            grounded: false,
+            facingRight: true
+        };
+
+        this.cameraY = 0;
+        this.score = 0;
+        this.platforms = [];
+        this.particles = [];
+        this.collectibles = [];
+        // this.enemies array is removed
+
+        this.winHeight = 2000; // How high to go
+        
+        // Input Listeners
+        window.addEventListener('keydown', e => this.handleInput(e, true));
+        window.addEventListener('keyup', e => this.handleInput(e, false));
+        
+        // Touch controls setup (unchanged)
+        if ('ontouchstart' in window) {
+            document.querySelectorAll('.touch-btn').forEach(btn => btn.style.display = 'block');
+            const leftBtn = document.getElementById('btn-left');
+            const rightBtn = document.getElementById('btn-right');
+            
+            leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.keys.left = true; });
+            leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); this.keys.left = false; });
+            
+            rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.keys.right = true; });
+            rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); this.keys.right = false; });
+            
+            this.canvas.addEventListener('touchstart', (e) => {
+                if(this.state === 'PLAYING' && !e.target.classList.contains('touch-btn')) {
+                    this.playerJump();
+                }
+            });
+        }
+
+        // Removed call to this.renderPreviews() as we use static <img> tags now
+        this.loop = this.loop.bind(this);
+        requestAnimationFrame(this.loop);
+    }
+
+    handleInput(e, isDown) {
+        if (e.code === 'ArrowLeft') this.keys.left = isDown;
+        if (e.code === 'ArrowRight') this.keys.right = isDown;
+        if (e.code === 'Space' || e.code === 'ArrowUp') {
+            if (isDown && !this.keys.jump) this.playerJump();
+            this.keys.jump = isDown;
+        }
+    }
+
+    playerJump() {
+        if (this.state === 'PLAYING' && this.player.grounded) {
+            this.player.vy = -5.5;
+            this.player.grounded = false;
+        }
+    }
+
+    toCharacterSelect() {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('char-screen').classList.remove('hidden');
+        this.state = 'SELECT';
+    }
+
+    selectChar(charKey) {
+        // Set selection visual
+        document.querySelectorAll('.char-card').forEach(card => card.classList.remove('selected'));
+        document.querySelector(`.char-card[onclick*='${charKey}']`).classList.add('selected');
+        this.selectedChar = charKey;
+    }
+
+    startGame() {
+        if (!this.selectedChar) {
+             // Default to Yas if none selected
+             this.selectedChar = 'yas'; 
+        }
+        
+        document.getElementById('char-screen').classList.add('hidden');
+        document.getElementById('score-display').classList.remove('hidden');
+        document.getElementById('end-screen').classList.add('hidden');
+        this.state = 'PLAYING';
+        
+        // Reset Player
+        this.player.x = this.width / 2;
+        this.player.y = this.height - 20;
+        this.player.vx = 0;
+        this.player.vy = 0;
+        this.score = 0;
+        this.cameraY = 0;
+        this.particles = [];
+
+        // Generate Level
+        this.platforms = [];
+        this.collectibles = [];
+        
+        // Ground
+        this.platforms.push({x: 0, y: this.height - 10, w: this.width, h: 10, type: 'ground'});
+
+        // --- ADDED: GUARANTEED STARTING COLLECTIBLES (Manual placement) ---
+        // Place a leaf on the first generated platform (y = height - 40)
+        this.collectibles.push({
+            x: 20, y: this.height - 48, startX: 20, type: 'leaf', taken: false, offset: 0
+        });
+        // Place a keyframe slightly higher
+        this.collectibles.push({
+            x: this.width - 25, y: this.height - 78, startX: this.width - 25, type: 'keyframe', taken: false, offset: 5
+        });
+        // Place a leaf in the center
+        this.collectibles.push({
+            x: this.width / 2 - 4, y: this.height - 138, startX: this.width / 2 - 4, type: 'leaf', taken: false, offset: 10
+        });
+
+
+        // Procedural Platforms
+        let y = this.height - 40;
+        while (y > -this.winHeight) {
+            let count = Math.random() > 0.8 ? 2 : 1;
+            for(let i=0; i<count; i++) {
+                const w = 20 + Math.random() * 30;
+                const x = Math.random() * (this.width - w);
+                this.platforms.push({x, y, w, h: 4, type: 'platform'});
+                
+                // Collectibles Logic (40% chance for the rest of the climb)
+                const rand = Math.random();
+                if(rand > 0.6) {
+                    const type = rand > 0.85 ? 'keyframe' : 'leaf';
+                    this.collectibles.push({
+                        x: x + w/2 - 4, 
+                        y: y - 8, 
+                        startX: x + w/2 - 4, 
+                        type: type, 
+                        taken: false,
+                        offset: Math.random() * 10
+                    });
+                }
+            }
+            y -= (30 + Math.random() * 20); // Gap
+        }
+
+        // Winning Platform
+        this.platforms.push({x: this.width/2 - 30, y: -this.winHeight - 20, w: 60, h: 4, type: 'finish'});
+        this.winY = -this.winHeight - 20;
+    }
+
+    spawnConfetti(x, y) {
+        const colors = [COLORS.FableYellow, COLORS.FuchsiaPink, COLORS.ForestTeal, COLORS.Mint];
+        for (let i = 0; i < 50; i++) {
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 6,
+                vy: (Math.random() - 1) * 6,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                life: 100 + Math.random() * 50
+            });
+        }
+    }
+
+    update() {
+        // Handle Particles even in WIN state
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            let p = this.particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.1; // Gravity
+            p.life--;
+            if (p.life <= 0) this.particles.splice(i, 1);
+        }
+
+        if (this.state !== 'PLAYING') return;
+
+        // Horizontal Movement
+        if (this.keys.left) {
+            this.player.vx -= 0.5;
+            this.player.facingRight = false;
+        }
+        if (this.keys.right) {
+            this.player.vx += 0.5;
+            this.player.facingRight = true;
+        }
+
+        this.player.vx *= this.friction;
+        this.player.x += this.player.vx;
+
+        // Screen boundaries (wrap around)
+        if (this.player.x + this.player.width < 0) this.player.x = this.width;
+        if (this.player.x > this.width) this.player.x = -this.player.width;
+
+        // Vertical Movement
+        this.player.vy += this.gravity;
+        this.player.y += this.player.vy;
+
+        this.player.grounded = false;
+
+        // Collision
+        for (let p of this.platforms) {
+            if (this.player.vy >= 0 && // Falling
+                this.player.y + this.player.height <= p.y + p.h + 5 && // Was above
+                this.player.y + this.player.height >= p.y && // Is intersecting top
+                this.player.x + this.player.width > p.x && // Horizontal overlap
+                this.player.x < p.x + p.w) {
+                
+                this.player.y = p.y - this.player.height;
+                this.player.vy = 0;
+                this.player.grounded = true;
+                
+                if (p.type === 'finish') {
+                    this.gameOver(true);
+                }
+            }
+        }
+
+        // Collectibles Logic
+        const time = Date.now() / 200;
+        for(let c of this.collectibles) {
+            if(c.taken) continue;
+            
+            // Move keyframes
+            if (c.type === 'keyframe') {
+                c.x = c.startX + Math.sin(time + c.offset) * 5;
+            }
+
+            if(this.player.x < c.x + 8 &&
+               this.player.x + this.player.width > c.x &&
+               this.player.y < c.y + 8 &&
+               this.player.y + this.player.height > c.y) {
+                    c.taken = true;
+                    // 20 points for Keyframe, 10 for Leaf
+                    this.score += (c.type === 'keyframe' ? 20 : 10);
+            }
+        }
+
+        // Camera follow
+        const targetCamY = this.player.y - this.height * 0.6;
+        if (targetCamY < this.cameraY) {
+            this.cameraY = targetCamY; // Only go up
+        }
+        
+        // Death check (fall off bottom of screen)
+        if (this.player.y > this.cameraY + this.height + 20) {
+            this.gameOver(false);
+        }
+
+        // Score based on height
+        const heightScore = Math.floor(Math.abs(Math.min(0, this.player.y)) / 10);
+        document.getElementById('score-display').textContent = `Score: ${this.score + heightScore}`;
+    }
+
+    draw() {
+        // Clear
+        this.ctx.fillStyle = COLORS.Mint; // Sky color
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        this.ctx.save();
+        this.ctx.scale(this.scale, this.scale);
+        this.ctx.translate(0, -this.cameraY);
+
+        // Draw Platforms
+        for (let p of this.platforms) {
+            if (p.y > this.cameraY + this.height || p.y + p.h < this.cameraY) continue; // Culling
+            
+            this.ctx.fillStyle = (p.type === 'ground') ? COLORS.ForestTeal : COLORS.FableYellow;
+            this.ctx.fillRect(Math.floor(p.x), Math.floor(p.y), p.w, p.h);
+            
+            // "3D" side effect for platforms
+            this.ctx.fillStyle = COLORS.Sage;
+            this.ctx.fillRect(Math.floor(p.x), Math.floor(p.y + p.h), p.w, 2);
+        }
+
+        // Draw Collectibles
+        for(let c of this.collectibles) {
+            if(c.taken) continue;
+            if (c.type === 'leaf') {
+                this.drawPixelSprite(SPRITES.leaf, c.x, c.y, {1: COLORS.ForestTeal, 2: COLORS.Sage});
+            } else if (c.type === 'keyframe') {
+                // Keyframe is Fable Yellow with Fuchsia accents
+                this.drawPixelSprite(SPRITES.keyframe, c.x, c.y, {1: COLORS.ForestTeal, 5: COLORS.FuchsiaPink});
+            }
+        }
+
+        // --- Draw Win Object (Clapperboard PNG) ---
+        if (this.clapperPrizeImage.complete) {
+            const drawX = this.width / 2 - (this.clapperPrizeW / 2);
+            const drawY = this.winY - this.clapperPrizeH;
+
+            // Draw the actual PNG image at the finish line
+            this.ctx.drawImage(
+                this.clapperPrizeImage,
+                Math.floor(drawX), 
+                Math.floor(drawY), 
+                this.clapperPrizeW, 
+                this.clapperPrizeH
+            );
+        }
+
+        // Draw Player
+        if (this.state === 'PLAYING' || this.state === 'WIN') {
+            const charData = CHARACTERS[this.selectedChar];
+            this.ctx.save();
+            this.ctx.translate(Math.floor(this.player.x), Math.floor(this.player.y));
+            if (!this.player.facingRight) {
+                this.ctx.translate(8, 0);
+                this.ctx.scale(-1, 1);
+            }
+            this.drawPixelSprite(charData.sprite, 0, 0, charData.palette);
+            this.ctx.restore();
+        }
+
+        // Draw Particles
+        for (let p of this.particles) {
+            this.ctx.fillStyle = p.color;
+            this.ctx.fillRect(Math.floor(p.x), Math.floor(p.y), 2, 2);
+        }
+
+        this.ctx.restore();
+    }
+
+    // Adjusted to support variable sizes
+    drawPixelSprite(grid, offsetX, offsetY, palette, size = 8) {
+        for(let y=0; y<size; y++) {
+            for(let x=0; x<size; x++) {
+                const pixelVal = grid[y][x];
+                if(pixelVal !== 0 && palette[pixelVal]) {
+                    this.ctx.fillStyle = palette[pixelVal];
+                    this.ctx.fillRect(Math.floor(offsetX + x), Math.floor(offsetY + y), 1, 1);
+                } else if (pixelVal === 1 && !palette[1]) {
+                    this.ctx.fillStyle = '#000';
+                    this.ctx.fillRect(Math.floor(offsetX + x), Math.floor(offsetY + y), 1, 1);
+                }
+            }
+        }
+    }
+
+    // renderPreviews() function removed
+    
+    gameOver(win) {
+        this.state = win ? 'WIN' : 'GAMEOVER';
+        document.getElementById('score-display').classList.add('hidden');
+        document.getElementById('end-screen').classList.remove('hidden');
+        
+        const endTitle = document.getElementById('end-title');
+        const endScore = document.getElementById('end-score');
+        
+        if (win) {
+            endTitle.innerHTML = "<div class='win-text'>YOU DID IT!</div>";
+            endTitle.style.color = COLORS.FableYellow;
+            this.spawnConfetti(this.player.x, this.player.y);
+            this.spawnConfetti(this.player.x, this.player.y - 40);
+        } else {
+            endTitle.textContent = "GAME OVER";
+            endTitle.style.color = COLORS.FuchsiaPink;
+        }
+        
+        // Calculate final score based on points + height reached
+        const heightScore = Math.floor(Math.abs(Math.min(0, this.player.y)) / 10);
+        const finalScore = this.score + heightScore;
+        endScore.textContent = `Final Score: ${finalScore}`;
+    }
+
+    reset() {
+        document.getElementById('end-screen').classList.add('hidden');
+        this.toCharacterSelect();
+    }
+
+    loop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(this.loop);
+    }
+}
+
+// Init Game
+const game = new Game();
+
+</script>
+</body>
+</html>
