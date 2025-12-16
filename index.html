@@ -371,7 +371,7 @@
 <script type="module">
     // Firebase Imports
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, query, limit, orderBy, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
@@ -545,25 +545,17 @@ class Game {
             // Public path for leaderboard data
             this.leaderboardRef = collection(this.db, `artifacts/${appId}/public/data/highscores`);
 
-            // Authenticate user
-            onAuthStateChanged(this.auth, (user) => {
-                if (user) {
-                    this.userId = user.uid;
-                    this.isAuthReady = true;
-                } else {
-                    this.userId = null;
-                    this.isAuthReady = true;
-                    if (!initialAuthToken) {
-                        signInAnonymously(this.auth).catch(e => console.error("Anonymous sign-in failed:", e));
-                    }
-                }
-            });
-            
+            // --- FIX: Await sign-in immediately to ensure auth readiness is set reliably ---
+            let user;
             if (initialAuthToken) {
-                 await signInWithCustomToken(this.auth, initialAuthToken);
+                 user = (await signInWithCustomToken(this.auth, initialAuthToken)).user;
             } else {
-                 await signInAnonymously(this.auth);
+                 user = (await signInAnonymously(this.auth)).user;
             }
+            
+            this.userId = user.uid;
+            this.isAuthReady = true;
+            console.log("Firebase Auth Ready. User ID:", this.userId);
 
         } catch (error) {
             console.error("Firebase initialization failed:", error);
@@ -582,21 +574,23 @@ class Game {
         }
 
         if (!this.isAuthReady || !this.leaderboardRef) {
-             console.log("Firebase not ready for leaderboard fetch.");
-             // Set temporary loading error if not ready
-            document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Auth required to load scores.</li>`;
-            return;
+             console.log("Firebase not ready for leaderboard fetch. Retrying in 500ms...");
+             // Retry if not ready yet (this handles the rare case where gameOver is called before initFirebase finishes)
+             setTimeout(() => this.fetchLeaderboard(), 500); 
+             document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item"><span class="score-rank">1.</span> Loading Scores...</li>`;
+             return;
         }
         
         // Reset the loading text before setting up the listener
         document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item"><span class="score-rank">1.</span> Loading Scores...</li>`;
 
         // Query for top 10 scores, ordered by score descending
+        // NOTE: If you submit a score, it should appear instantly here.
         const q = query(this.leaderboardRef, orderBy("score", "desc"), limit(10));
 
         // Listen for real-time changes
         this.unsubscribe = onSnapshot(q, (snapshot) => {
-            console.log("Leaderboard snapshot received."); // Log data arrival
+            console.log("Leaderboard snapshot received. Score count:", snapshot.size); 
             const scores = [];
             snapshot.forEach((doc) => {
                 const data = doc.data();
