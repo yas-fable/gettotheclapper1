@@ -545,7 +545,7 @@ class Game {
             // Public path for leaderboard data
             this.leaderboardRef = collection(this.db, `artifacts/${appId}/public/data/highscores`);
 
-            // --- FIX: Await sign-in immediately to ensure auth readiness is set reliably ---
+            // Await sign-in immediately to ensure auth readiness is set reliably
             let user;
             if (initialAuthToken) {
                  user = (await signInWithCustomToken(this.auth, initialAuthToken)).user;
@@ -566,26 +566,34 @@ class Game {
     /**
      * Leaderboard Functions
      */
-    fetchLeaderboard() {
+    fetchLeaderboard(retryCount = 0) {
         // Clear any existing listener to force a fresh data load on game over
         if (this.unsubscribe) {
             this.unsubscribe();
             this.unsubscribe = null;
         }
 
-        if (!this.isAuthReady || !this.leaderboardRef) {
-             console.log("Firebase not ready for leaderboard fetch. Retrying in 500ms...");
-             // Retry if not ready yet (this handles the rare case where gameOver is called before initFirebase finishes)
-             setTimeout(() => this.fetchLeaderboard(), 500); 
+        if (!this.isAuthReady || !this.leaderboardRef || !this.db) {
+             if (retryCount >= 5) {
+                console.error("Firebase Auth failed after 5 retries. Cannot fetch leaderboard.");
+                document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Could not connect to leaderboard. Please reload.</li>`;
+                return;
+             }
+             
+             console.log(`Firebase not fully ready for leaderboard fetch. Retrying in 500ms... (Attempt ${retryCount + 1})`);
              document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item"><span class="score-rank">1.</span> Loading Scores...</li>`;
+             
+             // Retry if not ready yet
+             setTimeout(() => this.fetchLeaderboard(retryCount + 1), 500); 
              return;
         }
-        
+
+        console.log("Fetching Leaderboard now...");
+
         // Reset the loading text before setting up the listener
         document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item"><span class="score-rank">1.</span> Loading Scores...</li>`;
 
         // Query for top 10 scores, ordered by score descending
-        // NOTE: If you submit a score, it should appear instantly here.
         const q = query(this.leaderboardRef, orderBy("score", "desc"), limit(10));
 
         // Listen for real-time changes
@@ -602,7 +610,12 @@ class Game {
             this.displayLeaderboard(scores);
         }, (error) => {
             console.error("Error fetching leaderboard:", error);
-            document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Error loading scores.</li>`;
+            // Check for permission denied errors which often look like auth failures
+            if (error.code === 'permission-denied') {
+                document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Leaderboard access denied. (Check security rules)</li>`;
+            } else {
+                document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Error loading scores.</li>`;
+            }
         });
     }
 
