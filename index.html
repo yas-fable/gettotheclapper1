@@ -422,7 +422,7 @@ const SPRITES = {
     ],
     leaf: [
         [0,0,0,1,0,0,0,0], [0,0,1,2,1,0,0,0], [0,1,2,2,2,1,0,0], [0,0,1,2,1,0,0,0],
-        [0,0,0,1,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0] // FIX: Added missing 8th row to ensure 8x8 grid
+        [0,0,0,1,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0] 
     ]
 };
 
@@ -492,7 +492,7 @@ class Game {
         this.userId = null;
         this.isAuthReady = false;
         this.leaderboardRef = null;
-        this.leaderboardListenerActive = false; // NEW: Track listener state
+        this.unsubscribe = null; // Store unsubscribe function if needed
 
         this.initFirebase(); // Initialize Firebase and Authentication
 
@@ -550,7 +550,6 @@ class Game {
                 if (user) {
                     this.userId = user.uid;
                     this.isAuthReady = true;
-                    // Removed call to fetchLeaderboard here. It will be called in gameOver.
                 } else {
                     this.userId = null;
                     this.isAuthReady = true;
@@ -576,15 +575,19 @@ class Game {
      * Leaderboard Functions
      */
     fetchLeaderboard() {
+        // Clear any existing listener to force a fresh data load on game over
+        if (this.unsubscribe) {
+            this.unsubscribe();
+            this.unsubscribe = null;
+        }
+
         if (!this.isAuthReady || !this.leaderboardRef) {
+             console.log("Firebase not ready for leaderboard fetch.");
              // Set temporary loading error if not ready
             document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Auth required to load scores.</li>`;
             return;
         }
         
-        // If the listener is already active, we don't need to set up a new one.
-        if (this.leaderboardListenerActive) return;
-
         // Reset the loading text before setting up the listener
         document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item"><span class="score-rank">1.</span> Loading Scores...</li>`;
 
@@ -592,8 +595,8 @@ class Game {
         const q = query(this.leaderboardRef, orderBy("score", "desc"), limit(10));
 
         // Listen for real-time changes
-        // Store the unsubscribe function just in case, though it's not strictly necessary for this app's lifecycle
         this.unsubscribe = onSnapshot(q, (snapshot) => {
+            console.log("Leaderboard snapshot received."); // Log data arrival
             const scores = [];
             snapshot.forEach((doc) => {
                 const data = doc.data();
@@ -603,11 +606,9 @@ class Game {
                 });
             });
             this.displayLeaderboard(scores);
-            this.leaderboardListenerActive = true;
         }, (error) => {
             console.error("Error fetching leaderboard:", error);
             document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Error loading scores.</li>`;
-            this.leaderboardListenerActive = false;
         });
     }
 
