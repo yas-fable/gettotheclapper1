@@ -203,87 +203,6 @@
             margin-bottom: 20px;
         }
 
-        /* Leaderboard Styles */
-        .leaderboard-container {
-            background-color: #FFF;
-            border: 3px solid #165C68;
-            padding: 15px;
-            margin-top: 20px;
-            width: 100%;
-            max-width: 280px;
-            box-shadow: 4px 4px 0px #165C68;
-            border-radius: 4px;
-            text-align: left;
-        }
-
-        .leaderboard-title {
-            font-weight: 800;
-            font-size: 18px;
-            color: #E15588; /* Fuchsia Pink */
-            margin-bottom: 10px;
-            text-align: center;
-            text-shadow: 1px 1px 0px #FCE6F5;
-        }
-
-        .leaderboard-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .leaderboard-item {
-            display: flex;
-            justify-content: space-between;
-            font-size: 14px;
-            padding: 5px 0;
-            border-bottom: 1px dashed #D1EDDE; /* Mint dashed line */
-        }
-
-        .leaderboard-item:last-child {
-            border-bottom: none;
-        }
-
-        .score-rank {
-            font-weight: 800;
-            width: 20px;
-            text-align: right;
-            color: #165C68;
-        }
-
-        .score-initials {
-            font-weight: 600;
-            flex-grow: 1;
-            margin-left: 10px;
-        }
-
-        .score-value {
-            font-weight: 800;
-            color: #FFAF00;
-        }
-        
-        /* Score Submission Form */
-        .score-submission {
-            margin-top: 20px;
-            background: #FFF4E3; /* Cream */
-            padding: 15px;
-            border: 3px solid #165C68;
-            border-radius: 4px;
-            width: 100%;
-            max-width: 280px;
-            pointer-events: auto;
-        }
-
-        .score-submission input[type="text"] {
-            font-family: 'Poppins', sans-serif;
-            font-weight: 600;
-            text-transform: uppercase;
-            width: 60px;
-            padding: 5px;
-            margin: 0 10px;
-            border: 2px solid #165C68;
-            border-radius: 4px;
-            text-align: center;
-        }
     </style>
 </head>
 <body>
@@ -304,8 +223,6 @@
             Reach the clapperboard at the top!<br>Collect keyframes for points.<br>Moving keyframes worth double!
         </div>
         <button class="btn" onclick="game.toCharacterSelect()">Start Game</button>
-
-        <!-- REMOVED Leaderboard Container from Start Screen -->
     </div>
 
     <!-- Character Select -->
@@ -339,24 +256,8 @@
     <!-- Game Over / Win -->
     <div id="end-screen" class="ui-layer hidden">
         <h1 id="end-title">Game Over</h1>
-        <p id="end-score">Final Score: 0</p>
-
-        <!-- Score Submission Form -->
-        <div id="score-submit-form" class="score-submission hidden">
-            <p style="font-weight: 600; margin-bottom: 10px;">New High Score! Enter Initials (3 letters):</p>
-            <input type="text" id="initials-input" maxlength="3" placeholder="AAA" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z]/g, '')">
-            <button class="btn" style="margin-top: 10px;" onclick="game.handleScoreSubmission()">Submit Score</button>
-        </div>
-
-        <!-- Leaderboard Container (MOVED TO END SCREEN) -->
-        <div id="leaderboard-container" class="leaderboard-container">
-            <div class="leaderboard-title">High Scores</div>
-            <ul id="leaderboard-list" class="leaderboard-list">
-                <li class="leaderboard-item"><span class="score-rank">1.</span> Loading Scores...</li>
-            </ul>
-        </div>
-
-        <button class="btn" id="play-again-btn" onclick="game.reset()">Play Again</button>
+        <p id="end-score">Score: 0</p>
+        <button class="btn" onclick="game.reset()">Play Again</button>
     </div>
     
     <div id="mobile-controls">
@@ -368,13 +269,7 @@
     <img id="clapperPrizeImage" src="pxArt.png" alt="Clapperboard Prize" style="display: none;">
 </div>
 
-<script type="module">
-    // Firebase Imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, query, limit, orderBy, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-
+<script>
 /**
  * Fable Studios Brand Colors
  */
@@ -422,7 +317,7 @@ const SPRITES = {
     ],
     leaf: [
         [0,0,0,1,0,0,0,0], [0,0,1,2,1,0,0,0], [0,1,2,2,2,1,0,0], [0,0,1,2,1,0,0,0],
-        [0,0,0,1,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0] 
+        [0,0,0,1,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0]
     ]
 };
 
@@ -480,22 +375,13 @@ class Game {
 
         this.cameraY = 0;
         this.score = 0;
-        this.finalScore = 0; // New: Store final score for leaderboard submission
         this.platforms = [];
         this.particles = [];
         this.collectibles = [];
+        // this.enemies array is removed
+
         this.winHeight = 2000; // How high to go
         
-        // --- Firebase/Firestore properties ---
-        this.db = null;
-        this.auth = null;
-        this.userId = null;
-        this.isAuthReady = false;
-        this.leaderboardRef = null;
-        this.unsubscribe = null; // Store unsubscribe function if needed
-
-        this.initFirebase(); // Initialize Firebase and Authentication
-
         // Input Listeners
         window.addEventListener('keydown', e => this.handleInput(e, true));
         window.addEventListener('keyup', e => this.handleInput(e, false));
@@ -519,177 +405,11 @@ class Game {
             });
         }
 
+        // Removed call to this.renderPreviews() as we use static <img> tags now
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
     }
 
-    /**
-     * Firebase Initialization and Auth
-     */
-    async initFirebase() {
-        try {
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-            if (!firebaseConfig) {
-                console.error("Firebase configuration is missing.");
-                this.isAuthReady = true;
-                return;
-            }
-
-            const app = initializeApp(firebaseConfig);
-            this.db = getFirestore(app);
-            this.auth = getAuth(app);
-            
-            // Public path for leaderboard data
-            this.leaderboardRef = collection(this.db, `artifacts/${appId}/public/data/highscores`);
-
-            // Await sign-in immediately to ensure auth readiness is set reliably
-            let user;
-            if (initialAuthToken) {
-                 user = (await signInWithCustomToken(this.auth, initialAuthToken)).user;
-            } else {
-                 user = (await signInAnonymously(this.auth)).user;
-            }
-            
-            this.userId = user.uid;
-            this.isAuthReady = true;
-            console.log("Firebase Auth Ready. User ID:", this.userId);
-
-        } catch (error) {
-            console.error("Firebase initialization failed:", error);
-            this.isAuthReady = true;
-        }
-    }
-
-    /**
-     * Leaderboard Functions
-     */
-    fetchLeaderboard(retryCount = 0) {
-        // Clear any existing listener to ensure we don't duplicate subscriptions
-        if (this.unsubscribe) {
-            this.unsubscribe();
-            this.unsubscribe = null;
-        }
-
-        if (!this.isAuthReady || !this.leaderboardRef || !this.db) {
-             if (retryCount >= 5) {
-                console.error("Firebase Auth failed after 5 retries. Cannot fetch leaderboard.");
-                this.displayLeaderboard([]); // Display empty list as final state
-                document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Could not connect to leaderboard. Please reload.</li>`;
-                return;
-             }
-             
-             console.log(`Firebase not fully ready for leaderboard fetch. Retrying in 500ms... (Attempt ${retryCount + 1})`);
-             document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item"><span class="score-rank">1.</span> Loading Scores...</li>`;
-             
-             // Retry if not ready yet
-             setTimeout(() => this.fetchLeaderboard(retryCount + 1), 500); 
-             return;
-        }
-
-        console.log("Fetching Leaderboard now...");
-
-        // Set initial loading state
-        document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item"><span class="score-rank">1.</span> Loading Scores...</li>`;
-
-        // Query for top 10 scores, ordered by score descending
-        const q = query(this.leaderboardRef, orderBy("score", "desc"), limit(10));
-
-        // Listen for real-time changes
-        this.unsubscribe = onSnapshot(q, (snapshot) => {
-            console.log("Leaderboard snapshot received. Score count:", snapshot.size); 
-            const scores = [];
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                scores.push({
-                    initials: data.initials || '...',
-                    score: data.score || 0
-                });
-            });
-            this.displayLeaderboard(scores);
-        }, (error) => {
-            console.error("Error fetching leaderboard:", error);
-            // If there's a permission issue or a failure, show a message and clean up.
-            if (this.unsubscribe) {
-                 this.unsubscribe();
-                 this.unsubscribe = null;
-            }
-            if (error.code === 'permission-denied') {
-                document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Leaderboard access denied. (Check security rules)</li>`;
-            } else {
-                document.getElementById('leaderboard-list').innerHTML = `<li class="leaderboard-item" style="color: ${COLORS.FuchsiaPink};">Error loading scores.</li>`;
-            }
-        });
-    }
-
-    displayLeaderboard(scores) {
-        const listEl = document.getElementById('leaderboard-list');
-        if (!listEl) return;
-
-        if (scores.length === 0) {
-            listEl.innerHTML = `<li class="leaderboard-item"><span class="score-rank">1.</span> Be the first to score!</li>`;
-            return;
-        }
-
-        listEl.innerHTML = scores.map((s, index) => `
-            <li class="leaderboard-item">
-                <span class="score-rank">${index + 1}.</span>
-                <span class="score-initials">${s.initials}</span>
-                <span class="score-value">${s.score}</span>
-            </li>
-        `).join('');
-    }
-
-    async submitScore(score, initials) {
-        if (!this.isAuthReady || !this.leaderboardRef || !this.userId) {
-            console.error("Cannot submit score: Firebase not ready or user not authenticated.");
-            return false;
-        }
-
-        try {
-            await addDoc(this.leaderboardRef, {
-                userId: this.userId,
-                initials: initials.substring(0, 3).toUpperCase(),
-                score: score,
-                timestamp: Date.now()
-            });
-            return true;
-        } catch (error) {
-            console.error("Error adding score to Firestore:", error);
-            return false;
-        }
-    }
-
-    handleScoreSubmission() {
-        const inputEl = document.getElementById('initials-input');
-        const submitButton = document.querySelector('#score-submit-form button');
-        const playAgainBtn = document.getElementById('play-again-btn');
-        const initials = inputEl.value.trim().toUpperCase();
-
-        if (initials.length === 0) {
-            inputEl.style.borderColor = COLORS.FuchsiaPink;
-            setTimeout(() => inputEl.style.borderColor = COLORS.ForestTeal, 500);
-            return;
-        }
-
-        // Disable input/button while submitting
-        inputEl.disabled = true;
-        submitButton.textContent = 'SAVING...';
-        
-        this.submitScore(this.finalScore, initials).then(() => {
-            // Hide the submission form after success
-            document.getElementById('score-submit-form').classList.add('hidden');
-            submitButton.textContent = 'SUBMITTED!';
-            playAgainBtn.textContent = 'Play Again'; // Change back to simple play again
-            playAgainBtn.style.display = 'block';
-        });
-    }
-    
-    /**
-     * Game Logic (Modified)
-     */
     handleInput(e, isDown) {
         if (e.code === 'ArrowLeft') this.keys.left = isDown;
         if (e.code === 'ArrowRight') this.keys.right = isDown;
@@ -738,7 +458,6 @@ class Game {
         this.score = 0;
         this.cameraY = 0;
         this.particles = [];
-        this.finalScore = 0; // Reset final score
 
         // Generate Level
         this.platforms = [];
@@ -970,8 +689,7 @@ class Game {
     drawPixelSprite(grid, offsetX, offsetY, palette, size = 8) {
         for(let y=0; y<size; y++) {
             for(let x=0; x<size; x++) {
-                // The error occurred here when grid[y] was undefined (i.e., for y=7 in the leaf sprite)
-                const pixelVal = grid[y][x]; 
+                const pixelVal = grid[y][x];
                 if(pixelVal !== 0 && palette[pixelVal]) {
                     this.ctx.fillStyle = palette[pixelVal];
                     this.ctx.fillRect(Math.floor(offsetX + x), Math.floor(offsetY + y), 1, 1);
@@ -983,6 +701,8 @@ class Game {
         }
     }
 
+    // renderPreviews() function removed
+    
     gameOver(win) {
         this.state = win ? 'WIN' : 'GAMEOVER';
         document.getElementById('score-display').classList.add('hidden');
@@ -990,21 +710,6 @@ class Game {
         
         const endTitle = document.getElementById('end-title');
         const endScore = document.getElementById('end-score');
-        const submitForm = document.getElementById('score-submit-form');
-        const playAgainBtn = document.getElementById('play-again-btn');
-
-        // Ensure leaderboard fetching starts/is active right before displaying
-        this.fetchLeaderboard(); 
-
-        // Reset submit form state
-        document.getElementById('initials-input').value = '';
-        document.getElementById('initials-input').disabled = false;
-        document.querySelector('#score-submit-form button').textContent = 'Submit Score';
-
-        // Calculate final score
-        const heightScore = Math.floor(Math.abs(Math.min(0, this.player.y)) / 10);
-        this.finalScore = this.score + heightScore;
-        endScore.textContent = `Final Score: ${this.finalScore}`;
         
         if (win) {
             endTitle.innerHTML = "<div class='win-text'>YOU DID IT!</div>";
@@ -1016,20 +721,15 @@ class Game {
             endTitle.style.color = COLORS.FuchsiaPink;
         }
         
-        // Show submission form if score is greater than 0
-        if (this.finalScore > 0) {
-            submitForm.classList.remove('hidden');
-            playAgainBtn.textContent = 'Skip & Play Again';
-        } else {
-            submitForm.classList.add('hidden');
-            playAgainBtn.textContent = 'Play Again';
-        }
+        // Calculate final score based on points + height reached
+        const heightScore = Math.floor(Math.abs(Math.min(0, this.player.y)) / 10);
+        const finalScore = this.score + heightScore;
+        endScore.textContent = `Final Score: ${finalScore}`;
     }
 
     reset() {
         document.getElementById('end-screen').classList.add('hidden');
-        // Go back to character select screen
-        this.toCharacterSelect(); 
+        this.toCharacterSelect();
     }
 
     loop() {
@@ -1040,9 +740,10 @@ class Game {
 }
 
 // Init Game
-// FIX: Export the 'game' instance globally so inline HTML handlers can access it.
-window.game = new Game();
+const game = new Game();
 
 </script>
 </body>
 </html>
+
+
